@@ -1,0 +1,12 @@
+.venv/
+.venv-ai/
+__pycache__/
+.pytest_cache/
+*.pyc
+models/*.task
+models/catvton-cache/
+vendor/CatVTON/.git/
+outputs/*.jpg
+outputs/*.png
+!outputs/.gitkeep
+

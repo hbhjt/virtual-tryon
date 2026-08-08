@@ -1,0 +1,77 @@
+{
+  "pose_model": true,
+  "samples": [
+    {
+      "person": "woman",
+      "input": "../inputs/person-woman-front.png",
+      "garment": "coral-tee",
+      "output": "woman-coral-tee.jpg",
+      "elapsed_ms": 527.3,
+      "quality_score": 0.9146,
+      "pose_detected": true
+    },
+    {
+      "person": "woman",
+      "input": "../inputs/person-woman-front.png",
+      "garment": "ocean-polo",
+      "output": "woman-ocean-polo.jpg",
+      "elapsed_ms": 374.9,
+      "quality_score": 0.9146,
+      "pose_detected": true
+    },
+    {
+      "person": "woman",
+      "input": "../inputs/person-woman-front.png",
+      "garment": "cream-sweater",
+      "output": "woman-cream-sweater.jpg",
+      "elapsed_ms": 501.9,
+      "quality_score": 0.9146,
+      "pose_detected": true
+    },
+    {
+      "person": "woman",
+      "input": "../inputs/person-woman-front.png",
+      "garment": "midnight-jacket",
+      "output": "woman-midnight-jacket.jpg",
+      "elapsed_ms": 342.0,
+      "quality_score": 0.9146,
+      "pose_detected": true
+    },
+    {
+      "person": "man",
+      "input": "../inputs/person-man-front.png",
+      "garment": "coral-tee",
+      "output": "man-coral-tee.jpg",
+      "elapsed_ms": 478.4,
+      "quality_score": 0.9067,
+      "pose_detected": true
+    },
+    {
+      "person": "man",
+      "input": "../inputs/person-man-front.png",
+      "garment": "ocean-polo",
+      "output": "man-ocean-polo.jpg",
+      "elapsed_ms": 458.9,
+      "quality_score": 0.9067,
+      "pose_detected": true
+    },
+    {
+      "person": "man",
+      "input": "../inputs/person-man-front.png",
+      "garment": "cream-sweater",
+      "output": "man-cream-sweater.jpg",
+      "elapsed_ms": 562.3,
+      "quality_score": 0.9067,
+      "pose_detected": true
+    },
+    {
+      "person": "man",
+      "input": "../inputs/person-man-front.png",
+      "garment": "midnight-jacket",
+      "output": "man-midnight-jacket.jpg",
+      "elapsed_ms": 379.5,
+      "quality_score": 0.9067,
+      "pose_detected": true
+    }
+  ]
+}

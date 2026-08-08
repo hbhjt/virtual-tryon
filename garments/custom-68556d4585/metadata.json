@@ -1,0 +1,66 @@
+{
+  "id": "custom-68556d4585",
+  "name": "652ab2a22dd83ec45e81e283af5310ec",
+  "category": "upper_body",
+  "anchors": {
+    "sleeve_l": [
+      0.08,
+      0.29
+    ],
+    "shoulder_l": [
+      0.3,
+      0.16
+    ],
+    "neck_l": [
+      0.43,
+      0.145
+    ],
+    "neck_r": [
+      0.57,
+      0.145
+    ],
+    "shoulder_r": [
+      0.7,
+      0.16
+    ],
+    "sleeve_r": [
+      0.92,
+      0.29
+    ],
+    "armpit_r": [
+      0.75,
+      0.39
+    ],
+    "hem_r": [
+      0.73,
+      0.92
+    ],
+    "hem_l": [
+      0.27,
+      0.92
+    ],
+    "armpit_l": [
+      0.25,
+      0.39
+    ],
+    "sleeve_inner_l": [
+      0.22,
+      0.36
+    ],
+    "sleeve_inner_r": [
+      0.78,
+      0.36
+    ]
+  },
+  "template": "short_sleeve",
+  "fit": 1.0,
+  "hem_ratio": 1.04,
+  "shoulder_extension": 0.14,
+  "shoulder_lift": 0.045,
+  "sleeve_length": 0.62,
+  "hem_width_ratio": 0.54,
+  "hem_overlap": 0.055,
+  "collar_type": "round",
+  "collar_width": 0.3,
+  "collar_depth": 0.035
+}

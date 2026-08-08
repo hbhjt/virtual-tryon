@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f4efe7" />
+    <title>镜里 · 智能试衣</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark">镜</span>
+          <div><h1>镜里</h1><p>CPU 智能试衣镜</p></div>
+        </div>
+        <div class="system-status" id="systemStatus">
+          <span class="status-dot"></span><span>正在检查本地服务</span>
+        </div>
+      </header>
+
+      <section class="workspace">
+        <aside class="wardrobe-panel">
+          <div class="panel-heading">
+            <div><span class="eyebrow">WARDROBE</span><h2>选择上衣</h2></div>
+            <label class="icon-button" title="导入透明背景服装图片">
+              <input id="garmentUpload" type="file" accept="image/png,image/jpeg" hidden />
+              <span aria-hidden="true">＋</span><span class="sr-only">导入服装</span>
+            </label>
+          </div>
+          <div class="garment-list" id="garmentList" aria-live="polite"></div>
+          <div class="mode-card">
+            <strong>生成模式</strong>
+            <label>
+              <input type="radio" name="renderMode" value="fast" checked />
+              <span><b>快速预览</b><small>约 0.4 秒 · 真实素材网格</small></span>
+            </label>
+            <label>
+              <input type="radio" name="renderMode" value="ai" id="aiMode" />
+              <span><b>AI 高质量</b><small id="aiModeHint">约 3–5 分钟 · 512×768 / 12 步</small></span>
+            </label>
+          </div>
+          <div class="wardrobe-note"><span class="note-icon">i</span><p>支持透明 PNG 或纯色背景的正面平铺服装图。</p></div>
+        </aside>
+
+        <section class="mirror-panel">
+          <div class="mirror-frame" id="mirrorFrame">
+            <video id="camera" autoplay muted playsinline></video>
+            <canvas id="captureCanvas" hidden></canvas>
+            <img id="photoPreview" alt="待换装照片" hidden />
+            <div class="camera-grid" aria-hidden="true">
+              <span class="guide-shoulders"></span><span class="guide-center"></span><span class="guide-waist"></span>
+            </div>
+            <div class="empty-camera" id="emptyCamera">
+              <div class="camera-illustration" aria-hidden="true"><span></span><span></span><span></span></div>
+              <h2>站到镜子前</h2><p>正对摄像头，露出双肩与腰部</p>
+              <button class="primary-button" id="startCamera">开启摄像头</button>
+              <label class="text-action">或上传一张照片<input id="photoUpload" type="file" accept="image/*" hidden /></label>
+            </div>
+            <div class="live-badge" id="liveBadge" hidden><span></span> LIVE</div>
+            <div class="quality-card" id="qualityCard" hidden>
+              <div class="quality-ring" id="qualityRing"><span id="qualityValue">0</span></div>
+              <div><strong id="qualityHint">正在寻找人体</strong><small id="qualityDetail">请站到画面中央</small></div>
+            </div>
+            <div class="processing" id="processing" hidden>
+              <div class="spinner"></div><strong id="processingTitle">正在为你换装</strong>
+              <span id="processingText">本地 CPU 处理中，请稍候</span>
+            </div>
+          </div>
+          <div class="controls">
+            <label class="switch-row">
+              <input id="autoCapture" type="checkbox" checked /><span class="switch"><span></span></span><span>姿态稳定后自动拍摄</span>
+            </label>
+            <button class="shutter" id="shutter" disabled aria-label="立即拍摄"><span></span></button>
+            <label class="upload-shortcut"><input id="photoUploadSecondary" type="file" accept="image/*" hidden /><span>上传照片</span></label>
+          </div>
+        </section>
+
+        <aside class="result-panel">
+          <div class="panel-heading"><div><span class="eyebrow">RESULT</span><h2>试穿效果</h2></div></div>
+          <div class="result-stage" id="resultStage">
+            <div class="result-placeholder" id="resultPlaceholder"><span class="sparkle">✦</span><p>选择衣服并拍照后<br />效果会显示在这里</p></div>
+            <img id="resultImage" alt="虚拟换装结果" hidden />
+          </div>
+          <div class="result-message" id="resultMessage" hidden></div>
+          <div class="result-actions">
+            <button class="secondary-button" id="retryButton" disabled>重新拍摄</button>
+            <a class="primary-button disabled" id="downloadButton" download="virtual-tryon.jpg">保存照片</a>
+          </div>
+          <div class="privacy-note"><span>◷</span><p>全部处理均在本机完成，照片不会上传到外部服务器。</p></div>
+        </aside>
+      </section>
+    </main>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>

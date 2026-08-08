@@ -1,0 +1,30 @@
+{
+  "id": "ocean-polo",
+  "name": "深海蓝珠地 Polo",
+  "category": "polo",
+  "template": "short_sleeve",
+  "fit": 1.0,
+  "hem_ratio": 1.02,
+  "shoulder_extension": 0.14,
+  "shoulder_lift": 0.04,
+  "sleeve_length": 0.62,
+  "hem_width_ratio": 0.54,
+  "hem_overlap": 0.05,
+  "collar_type": "polo",
+  "collar_width": 0.25,
+  "collar_depth": 0.02,
+  "anchors": {
+    "sleeve_l": [0.048, 0.354],
+    "shoulder_l": [0.282, 0.133],
+    "neck_l": [0.429, 0.161],
+    "neck_r": [0.578, 0.161],
+    "shoulder_r": [0.724, 0.133],
+    "sleeve_r": [0.956, 0.354],
+    "sleeve_inner_l": [0.231, 0.480],
+    "sleeve_inner_r": [0.774, 0.480],
+    "armpit_l": [0.233, 0.398],
+    "armpit_r": [0.772, 0.398],
+    "hem_l": [0.212, 0.912],
+    "hem_r": [0.790, 0.912]
+  }
+}

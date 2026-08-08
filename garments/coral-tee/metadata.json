@@ -1,0 +1,30 @@
+{
+  "id": "coral-tee",
+  "name": "酒红棉质圆领 T 恤",
+  "category": "tshirt",
+  "template": "short_sleeve",
+  "fit": 0.98,
+  "hem_ratio": 1.05,
+  "shoulder_extension": 0.14,
+  "shoulder_lift": 0.045,
+  "sleeve_length": 0.64,
+  "hem_width_ratio": 0.54,
+  "hem_overlap": 0.055,
+  "collar_type": "round",
+  "collar_width": 0.28,
+  "collar_depth": 0.025,
+  "anchors": {
+    "sleeve_l": [0.052, 0.281],
+    "shoulder_l": [0.274, 0.122],
+    "neck_l": [0.423, 0.083],
+    "neck_r": [0.579, 0.083],
+    "shoulder_r": [0.721, 0.122],
+    "sleeve_r": [0.958, 0.279],
+    "sleeve_inner_l": [0.234, 0.394],
+    "sleeve_inner_r": [0.787, 0.391],
+    "armpit_l": [0.235, 0.397],
+    "armpit_r": [0.786, 0.397],
+    "hem_l": [0.214, 0.922],
+    "hem_r": [0.798, 0.922]
+  }
+}
