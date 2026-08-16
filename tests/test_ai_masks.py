@@ -6,6 +6,7 @@ import numpy as np
 from app.ai_masks import (
     build_generation_mask,
     composite_to_original,
+    expand_old_clothes_by_color,
     harmonize_garment_color,
     include_color_matched_old_edges,
     letterbox_image,
@@ -104,3 +105,32 @@ def test_color_matched_old_edge_is_recovered_without_expanding_to_background() -
     recovered = include_color_matched_old_edges(refined, generation, original, old)
     assert recovered[19, 30] == 255
     assert recovered[15, 15] == 0
+
+
+def test_old_clothes_take_priority_over_parser_conflict_but_not_real_hands() -> None:
+    target = np.zeros((100, 100), dtype=np.uint8)
+    target[20:85, 20:80] = 255
+    lip = np.zeros_like(target)
+    atr = np.zeros_like(target)
+    lip[25:80, 25:75] = 5  # LIP sees the original shirt.
+    atr[25:45, 25:75] = 11  # ATR incorrectly calls the blue collar area face.
+    hands = np.zeros_like(target)
+    hands[55:75, 25:38] = 255  # Coarse arm protection overlaps an old sleeve.
+
+    mask = build_generation_mask(target, lip, atr, hands)
+    assert mask[32, 50] == 255
+    assert mask[65, 30] == 0
+
+
+def test_old_clothes_color_recovery_fills_missed_collar_and_sleeve_pixels() -> None:
+    original = np.full((100, 120, 3), (232, 230, 225), dtype=np.uint8)
+    original[25:85, 30:90] = (95, 155, 190)
+    parsed = np.zeros((100, 120), dtype=np.uint8)
+    parsed[38:82, 38:82] = 255
+    target = np.zeros_like(parsed)
+    target[20:88, 25:95] = 255
+
+    recovered = expand_old_clothes_by_color(original, parsed, target)
+    assert recovered[30, 60] == 255
+    assert recovered[55, 34] == 255
+    assert recovered[5, 5] == 0

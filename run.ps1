@@ -1,6 +1,7 @@
 param(
     [int]$Port = 8000,
-    [switch]$SkipInstall
+    [switch]$SkipInstall,
+    [switch]$Reload
 )
 
 $ErrorActionPreference = "Stop"
@@ -17,5 +18,8 @@ if (-not $SkipInstall) {
 
 & $VenvPython (Join-Path $ProjectRoot "scripts\download_models.py")
 Set-Location -LiteralPath $ProjectRoot
-& $VenvPython -m uvicorn app.main:app --host 127.0.0.1 --port $Port
-
+$UvicornArguments = @("-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", $Port)
+if ($Reload) {
+    $UvicornArguments += "--reload"
+}
+& $VenvPython @UvicornArguments

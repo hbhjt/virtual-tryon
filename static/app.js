@@ -5,10 +5,13 @@ const elements = {
   liveBadge: $("#liveBadge"), qualityCard: $("#qualityCard"), qualityRing: $("#qualityRing"),
   qualityValue: $("#qualityValue"), qualityHint: $("#qualityHint"), qualityDetail: $("#qualityDetail"),
   autoCapture: $("#autoCapture"), processing: $("#processing"), processingTitle: $("#processingTitle"),
-  processingText: $("#processingText"), garmentList: $("#garmentList"), garmentUpload: $("#garmentUpload"),
+  processingText: $("#processingText"), aiProgress: $("#aiProgress"), aiProgressFill: $("#aiProgressFill"),
+  aiProgressPercent: $("#aiProgressPercent"), garmentList: $("#garmentList"), garmentUpload: $("#garmentUpload"),
   resultPlaceholder: $("#resultPlaceholder"), resultImage: $("#resultImage"), resultMessage: $("#resultMessage"),
   retryButton: $("#retryButton"), downloadButton: $("#downloadButton"), systemStatus: $("#systemStatus"),
   aiMode: $("#aiMode"), aiModeHint: $("#aiModeHint"), toast: $("#toast"),
+  scaleCard: $("#scaleCard"), scaleDown: $("#scaleDown"), scaleUp: $("#scaleUp"),
+  garmentScaleValue: $("#garmentScaleValue"), scaleTrackFill: $("#scaleTrackFill"), scaleHint: $("#scaleHint"),
   renderModes: [...document.querySelectorAll('input[name="renderMode"]')],
   uploads: [$("#photoUpload"), $("#photoUploadSecondary")],
 };
@@ -16,6 +19,7 @@ const elements = {
 const state = {
   stream: null, selectedGarment: null, analyzing: false, processing: false,
   stableFrames: 0, previousLandmarks: null, analyzeTimer: null, lastPhotoUrl: null,
+  garmentScale: 1, lastFastResultId: null, lastResultGarmentId: null,
 };
 
 function showToast(message) {
@@ -23,6 +27,98 @@ function showToast(message) {
   elements.toast.classList.add("show");
   clearTimeout(showToast.timer);
   showToast.timer = setTimeout(() => elements.toast.classList.remove("show"), 3600);
+}
+
+function currentRenderMode() {
+  return elements.renderModes.find((input) => input.checked)?.value || "fast";
+}
+
+function createAIJobId() {
+  if (crypto.randomUUID) return crypto.randomUUID().replaceAll("-", "");
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return [...bytes].map((value) => value.toString(16).padStart(2, "0")).join("");
+}
+
+function setAIProgress(progress, message) {
+  const value = Math.max(0, Math.min(100, Number(progress) || 0));
+  elements.aiProgressFill.style.width = `${value}%`;
+  elements.aiProgressPercent.textContent = `${Math.round(value)}%`;
+  if (message) elements.processingText.textContent = message;
+}
+
+function startAIProgressPolling(jobId) {
+  let stopped = false, timeoutId = null;
+  elements.aiProgress.hidden = false;
+  setAIProgress(1, "照片正在提交到本地 AI");
+  const poll = async () => {
+    if (stopped) return;
+    try {
+      const progress = await apiJson(`/api/tryon/progress/${jobId}`);
+      setAIProgress(progress.progress, progress.message);
+      if (progress.status === "completed" || progress.status === "error") return;
+    } catch (_) { /* The main request will surface a useful error. */ }
+    timeoutId = setTimeout(poll, 850);
+  };
+  poll();
+  return () => { stopped = true; clearTimeout(timeoutId); };
+}
+
+function updateScaleControl() {
+  const minimum = 0.8, maximum = 1.6;
+  const aiMode = currentRenderMode() === "ai";
+  elements.garmentScaleValue.textContent = `${Math.round(state.garmentScale * 100)}%`;
+  elements.scaleTrackFill.style.width = `${((state.garmentScale - minimum) / (maximum - minimum)) * 100}%`;
+  elements.scaleCard.classList.toggle("unavailable", aiMode);
+  elements.scaleHint.textContent = aiMode ? "仅快速预览支持手动缩放" : "生成后围绕固定中心缩放，每次 5%";
+  // Keep the buttons clickable in AI mode so a click can explain why the
+  // operation is unavailable instead of appearing to do nothing.
+  elements.scaleDown.disabled = state.processing || (!aiMode && state.garmentScale <= minimum);
+  elements.scaleUp.disabled = state.processing || (!aiMode && state.garmentScale >= maximum);
+}
+
+async function changeGarmentScale(delta) {
+  if (state.processing) return;
+  if (currentRenderMode() !== "fast") {
+    showToast("衣服缩放只用于快速预览，请先选择“快速预览”模式");
+    return;
+  }
+  const next = Math.round((state.garmentScale + delta) * 20) / 20;
+  state.garmentScale = Math.max(0.8, Math.min(1.6, next));
+  updateScaleControl();
+  if (!elements.resultImage.hidden) {
+    if (state.lastFastResultId && state.lastResultGarmentId === state.selectedGarment?.id) {
+      await resizeGeneratedGarment();
+    } else {
+      showToast("请先用当前衣服生成一次快速预览，之后即可固定中心缩放");
+    }
+  }
+}
+
+async function resizeGeneratedGarment() {
+  const requestedScale = state.garmentScale;
+  state.processing = true; updateScaleControl(); elements.processing.hidden = false; elements.aiProgress.hidden = true;
+  elements.processingTitle.textContent = "正在调整衣服大小";
+  elements.processingText.textContent = "位置和中心已锁定，不会重新识别人物";
+  try {
+    const form = new FormData();
+    form.append("result_id", state.lastFastResultId);
+    form.append("garment_scale", state.garmentScale.toFixed(2));
+    const result = await apiJson("/api/tryon/scale", { method: "POST", body: form });
+    elements.resultImage.src = `${result.image_url}?t=${Date.now()}`;
+    elements.downloadButton.href = result.image_url;
+    if (Math.abs(result.garment_scale - requestedScale) > 0.001) {
+      state.garmentScale = result.garment_scale;
+      updateScaleControl();
+      showToast(`后台仍是旧版本，目前最多 ${Math.round(result.garment_scale * 100)}%；请重启项目服务`);
+    } else {
+      showToast(`已锁定中心缩放到 ${Math.round(result.garment_scale * 100)}%，用时 ${(result.elapsed_ms / 1000).toFixed(1)} 秒`);
+    }
+  } catch (error) {
+    if (error.message.includes("失效")) state.lastFastResultId = null;
+    showToast(error.message);
+  } finally {
+    state.processing = false; updateScaleControl(); elements.processing.hidden = true;
+  }
 }
 
 async function apiJson(url, options) {
@@ -42,9 +138,9 @@ async function checkHealth() {
       elements.aiMode.disabled = true;
       elements.aiModeHint.textContent = "AI 环境未安装，快速模式仍可用";
     } else if (health.ai.model_cached) {
-      elements.aiModeHint.textContent = "约 3–5 分钟 · 512×768 / 12 步 · 模型已缓存";
+      elements.aiModeHint.textContent = "约 3–5 分钟 · 需完整上半身 · 模型已缓存";
     } else {
-      elements.aiModeHint.textContent = "首次使用需下载约 5GB 模型";
+      elements.aiModeHint.textContent = "首次使用需下载约 5GB 模型 · 需完整上半身";
     }
   } catch (_) {
     elements.systemStatus.className = "system-status warning";
@@ -162,27 +258,42 @@ async function processUploadedPhoto(file) {
 
 async function runTryon(imageInput) {
   if (!state.selectedGarment) return showToast("请先选择一件上衣");
-  const mode = elements.renderModes.find((input) => input.checked)?.value || "fast";
-  state.processing = true; elements.processing.hidden = false; clearTimeout(state.analyzeTimer);
+  const mode = currentRenderMode();
+  state.processing = true; updateScaleControl(); elements.processing.hidden = false; clearTimeout(state.analyzeTimer);
   elements.processingTitle.textContent = mode === "ai" ? "AI 正在生成真实试穿" : "正在生成快速预览";
   elements.processingText.textContent = mode === "ai" ? "本地 CPU 约需 3–5 分钟，请保持页面开启" : "本地 CPU 处理中，请稍候";
+  elements.aiProgress.hidden = mode !== "ai";
+  let stopProgressPolling = null;
   try {
     const form = new FormData(); form.append("garment_id", state.selectedGarment.id); form.append("mode", mode);
+    form.append("garment_scale", state.garmentScale.toFixed(2));
+    const jobId = mode === "ai" ? createAIJobId() : null;
+    if (jobId) form.append("job_id", jobId);
     const isBurst = Array.isArray(imageInput);
     if (isBurst) imageInput.forEach((blob, index) => form.append("images", blob, `burst-${index}.jpg`));
     else form.append("image", imageInput, "person.jpg");
-    const result = await apiJson(isBurst ? "/api/tryon/burst" : "/api/tryon", { method: "POST", body: form });
+    const resultPromise = apiJson(isBurst ? "/api/tryon/burst" : "/api/tryon", { method: "POST", body: form });
+    if (jobId) stopProgressPolling = startAIProgressPolling(jobId);
+    const result = await resultPromise;
+    if (mode === "ai") setAIProgress(100, "AI 高质量试穿完成");
     elements.resultImage.src = `${result.image_url}?t=${Date.now()}`; elements.resultImage.hidden = false;
     elements.resultPlaceholder.hidden = true; elements.downloadButton.href = result.image_url;
     elements.downloadButton.classList.remove("disabled"); elements.retryButton.disabled = false;
     elements.resultMessage.hidden = !result.warning; if (result.warning) elements.resultMessage.textContent = result.warning;
+    state.lastFastResultId = result.mode === "fast" ? result.id : null;
+    state.lastResultGarmentId = result.mode === "fast" ? state.selectedGarment.id : null;
     const burstNote = result.burst_frames ? `，已从 ${result.burst_frames} 张中择优` : "";
-    showToast(`${result.mode === "ai" ? "AI 高质量" : "快速预览"}完成${burstNote}，用时 ${(result.elapsed_ms / 1000).toFixed(1)} 秒`);
+    const scaleNote = result.mode === "fast" ? `，衣服 ${Math.round(result.garment_scale * 100)}%` : "";
+    showToast(`${result.mode === "ai" ? "AI 高质量" : "快速预览"}完成${burstNote}${scaleNote}，用时 ${(result.elapsed_ms / 1000).toFixed(1)} 秒`);
   } catch (error) { showToast(error.message); }
-  finally { state.processing = false; elements.processing.hidden = true; }
+  finally {
+    stopProgressPolling?.();
+    state.processing = false; updateScaleControl(); elements.processing.hidden = true; elements.aiProgress.hidden = true;
+  }
 }
 
 function retry() {
+  state.lastFastResultId = null; state.lastResultGarmentId = null;
   elements.resultImage.hidden = true; elements.resultPlaceholder.hidden = false; elements.resultMessage.hidden = true;
   elements.downloadButton.classList.add("disabled"); elements.retryButton.disabled = true;
   if (state.stream) {
@@ -195,8 +306,11 @@ function retry() {
 elements.startCamera.addEventListener("click", startCamera);
 elements.shutter.addEventListener("click", captureFromCamera);
 elements.retryButton.addEventListener("click", retry);
+elements.scaleDown.addEventListener("click", () => changeGarmentScale(-0.05));
+elements.scaleUp.addEventListener("click", () => changeGarmentScale(0.05));
 elements.uploads.forEach((input) => input.addEventListener("change", () => processUploadedPhoto(input.files[0])));
 elements.renderModes.forEach((input) => input.addEventListener("change", () => {
+  updateScaleControl();
   if (input.checked && input.value === "ai") showToast("AI 高质量模式会在本机 CPU 上生成，约需 3–5 分钟");
 }));
 elements.garmentUpload.addEventListener("change", async () => {
@@ -210,4 +324,5 @@ elements.garmentUpload.addEventListener("change", async () => {
 });
 
 window.addEventListener("beforeunload", () => state.stream?.getTracks().forEach((track) => track.stop()));
+updateScaleControl();
 Promise.all([checkHealth(), loadGarments()]).catch((error) => showToast(error.message));

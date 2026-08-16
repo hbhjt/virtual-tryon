@@ -7,6 +7,8 @@ import numpy as np
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.ai_progress import write_progress
+from app.image_utils import write_png_path
 
 
 client = TestClient(app)
@@ -52,7 +54,7 @@ def test_tryon_creates_downloadable_result() -> None:
     catalog = client.get("/api/garments").json()["items"]
     response = client.post(
         "/api/tryon",
-        data={"garment_id": catalog[0]["id"]},
+        data={"garment_id": catalog[0]["id"], "garment_scale": "1.15"},
         files={"image": ("person.jpg", image_bytes(), "image/jpeg")},
     )
 
@@ -60,6 +62,7 @@ def test_tryon_creates_downloadable_result() -> None:
     payload = response.json()
     assert payload["image_url"].startswith("/outputs/tryon-")
     assert payload["mode"] == "fast"
+    assert payload["garment_scale"] == 1.15
     result = client.get(payload["image_url"])
     assert result.status_code == 200
     assert result.headers["content-type"].startswith("image/jpeg")
@@ -83,8 +86,62 @@ def test_burst_tryon_selects_one_of_three_frames() -> None:
     assert client.get(payload["image_url"]).status_code == 200
 
 
+def test_scale_existing_result_keeps_session_and_does_not_need_image_upload() -> None:
+    garment_id = client.get("/api/garments").json()["items"][0]["id"]
+    initial = client.post(
+        "/api/tryon",
+        data={"garment_id": garment_id, "garment_scale": "1.0"},
+        files={"image": ("person.jpg", image_bytes(), "image/jpeg")},
+    )
+    assert initial.status_code == 200
+    initial_payload = initial.json()
+    initial_bytes = client.get(initial_payload["image_url"]).content
+
+    resized = client.post(
+        "/api/tryon/scale",
+        data={"result_id": initial_payload["id"], "garment_scale": "1.2"},
+    )
+    assert resized.status_code == 200
+    payload = resized.json()
+    assert payload["id"] == initial_payload["id"]
+    assert payload["image_url"] == initial_payload["image_url"]
+    assert payload["garment_scale"] == 1.2
+    assert payload["placement_locked"] is True
+    assert client.get(payload["image_url"]).content != initial_bytes
+
+
 def test_invalid_image_is_rejected() -> None:
     response = client.post(
         "/api/analyze", files={"image": ("bad.txt", b"not an image", "text/plain")}
     )
     assert response.status_code == 400
+
+
+def test_ai_request_exposes_completed_progress(monkeypatch) -> None:
+    job_id = "1234567890abcdef1234567890abcdef"
+
+    def fake_ai_tryon(frame, garment, pose, output_path, *, progress_file, **_kwargs):
+        write_progress(
+            progress_file,
+            progress=55,
+            stage="generating",
+            message="正在生成衣服细节：第 6/12 步",
+            step=6,
+            total_steps=12,
+        )
+        write_png_path(output_path, frame)
+        return {"generation_seconds": 0.01}
+
+    monkeypatch.setattr("app.main.run_ai_tryon", fake_ai_tryon)
+    garment_id = client.get("/api/garments").json()["items"][0]["id"]
+    response = client.post(
+        "/api/tryon",
+        data={"garment_id": garment_id, "mode": "ai", "job_id": job_id},
+        files={"image": ("person.jpg", image_bytes(), "image/jpeg")},
+    )
+    assert response.status_code == 200
+    assert response.json()["job_id"] == job_id
+    progress = client.get(f"/api/tryon/progress/{job_id}")
+    assert progress.status_code == 200
+    assert progress.json()["status"] == "completed"
+    assert progress.json()["progress"] == 100

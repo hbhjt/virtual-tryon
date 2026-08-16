@@ -376,18 +376,19 @@ def warp_garment(
     return rendered
 
 
-def place_garment_rigid(
+def _rigid_placement_transform(
     garment_rgba: np.ndarray,
     garment: Garment,
     pose: PoseResult,
     shape: tuple[int, int],
-) -> np.ndarray:
-    """Place the unmodified garment with one uniform scale, rotation and translation."""
+    *,
+    scale_multiplier: float = 1.0,
+) -> tuple[np.ndarray, float, float, np.ndarray]:
     frame_height, frame_width = shape
     alpha = garment_rgba[:, :, 3]
     points = cv2.findNonZero(np.where(alpha >= 12, 255, 0).astype(np.uint8))
     if points is None:
-        return np.zeros((frame_height, frame_width, 4), dtype=np.uint8)
+        return np.eye(2, 3, dtype=np.float32), 20.0, 30.0, np.zeros(2, dtype=np.float32)
     x, y, box_width, box_height = cv2.boundingRect(points)
 
     sides = screen_sides(pose)
@@ -402,8 +403,9 @@ def place_garment_rigid(
 
     desired_width = shoulder_span * 1.72 * garment.fit
     desired_height = torso_height * 1.13 * garment.hem_ratio
-    scale = min(desired_width / max(box_width, 1), desired_height / max(box_height, 1))
-    scale = float(np.clip(scale, 0.08, 2.5))
+    base_scale = min(desired_width / max(box_width, 1), desired_height / max(box_height, 1))
+    base_scale = float(np.clip(base_scale, 0.08, 2.5))
+    scale_factor = float(np.clip(scale_multiplier, 0.8, 1.6))
 
     source_l = _source_point(garment, "shoulder_l", garment_rgba.shape[1], garment_rgba.shape[0])
     source_r = _source_point(garment, "shoulder_r", garment_rgba.shape[1], garment_rgba.shape[0])
@@ -411,12 +413,43 @@ def place_garment_rigid(
     source_angle = float(np.arctan2(source_vector[1], source_vector[0]))
     target_angle = float(np.arctan2(shoulder_vector[1], shoulder_vector[0]))
     angle = target_angle - source_angle
-    cosine, sine = np.cos(angle) * scale, np.sin(angle) * scale
-    linear = np.array([[cosine, -sine], [sine, cosine]], dtype=np.float32)
+    cosine, sine = np.cos(angle) * base_scale, np.sin(angle) * base_scale
+    base_linear = np.array([[cosine, -sine], [sine, cosine]], dtype=np.float32)
     source_mid = (source_l + source_r) * 0.5
     target_mid = (sl + sr) * 0.5 - torso_down * 0.035
-    translation = target_mid - linear @ source_mid
+    base_translation = target_mid - base_linear @ source_mid
+
+    # Once the initial keypoint placement is known, user scaling is performed
+    # around the visible garment's fixed geometric center. Therefore neither
+    # pose detection nor the garment's center position changes between clicks.
+    source_center = np.array(
+        [x + box_width * 0.5, y + box_height * 0.5],
+        dtype=np.float32,
+    )
+    fixed_center = base_linear @ source_center + base_translation
+    linear = base_linear * scale_factor
+    translation = fixed_center - linear @ source_center
     transform = np.column_stack([linear, translation]).astype(np.float32)
+    return transform, shoulder_span, torso_height, fixed_center
+
+
+def place_garment_rigid(
+    garment_rgba: np.ndarray,
+    garment: Garment,
+    pose: PoseResult,
+    shape: tuple[int, int],
+    *,
+    scale_multiplier: float = 1.0,
+) -> np.ndarray:
+    """Place the unmodified garment with one uniform scale, rotation and translation."""
+    frame_height, frame_width = shape
+    transform, _, _, _ = _rigid_placement_transform(
+        garment_rgba,
+        garment,
+        pose,
+        shape,
+        scale_multiplier=scale_multiplier,
+    )
     return cv2.warpAffine(
         garment_rgba,
         transform,
@@ -588,7 +621,12 @@ def _repair_collar(
     return np.clip(repaired, 0, 255).astype(np.uint8)
 
 
-def compose_tryon(frame: np.ndarray, garment: Garment, pose: PoseResult) -> np.ndarray:
+def compose_tryon(
+    frame: np.ndarray,
+    garment: Garment,
+    pose: PoseResult,
+    garment_scale: float = 1.0,
+) -> np.ndarray:
     garment_rgba = read_image_path(garment.image_path, cv2.IMREAD_UNCHANGED)
     if garment_rgba is None:
         raise RuntimeError("服装素材无法读取")
@@ -598,9 +636,15 @@ def compose_tryon(frame: np.ndarray, garment: Garment, pose: PoseResult) -> np.n
         garment_rgba = np.dstack([garment_rgba, np.full(garment_rgba.shape[:2], 255, dtype=np.uint8)])
 
     height, width = frame.shape[:2]
-    # Fast preview follows common real-time AR try-on implementations: preserve
-    # the catalog silhouette and use only a global similarity transform.
-    warped = place_garment_rigid(garment_rgba, garment, pose, (height, width))
+    # Fast preview uses only pose keypoints and one similarity transform. The
+    # optional UI adjustment scales the whole source garment uniformly.
+    warped = place_garment_rigid(
+        garment_rgba,
+        garment,
+        pose,
+        (height, width),
+        scale_multiplier=garment_scale,
+    )
     alpha = warped[:, :, 3].astype(np.float32) / 255.0
     # Keep the PNG's own outline. Only normalize near-binary interpolation noise;
     # do not close, dilate or erode the source alpha.

@@ -4,14 +4,16 @@
 
 项目提供两档效果：
 
-- 快速预览：MediaPipe 姿态、服装整图等比缩放/平移/轻微旋转、边缘与光照融合，典型耗时约 0.4 秒。快速模式不会对衣服做局部网格拉伸，也不会使用人体分割或手臂蒙版裁切服装轮廓。
+- 快速预览：MediaPipe 姿态关键点定位后，对整件服装只做统一缩放、平移和轻微旋转，再完成边缘与光照融合，典型耗时约 0.4 秒。首次生成后锁定姿态、摆放位置和服装中心，网页可在 80%～160% 之间按 5% 二次缩放，不再重新检测人物。
 - AI 高质量：SCHP 原衣解析 + CatVTON 扩散式虚拟试衣，512×768、默认 12 步，当前测试机约 3–5 分钟。
+
+AI 模式会在网页显示实际任务进度，包括画面预检、人体解析、模型加载、扩散生成第 N/12 步、边缘检查和结果保存；进度来自本地工作进程，不是按时间模拟。
 
 ## 已完成的六个阶段
 
 1. 4 件真实纹理透明服装：T 恤、Polo、长袖针织衫、轻薄夹克。
 2. 短袖和长袖分类模板；服装元数据记录版型、松量、衣长和专用锚点。
-3. 快速模式使用整件衣服的刚性相似变换，保持领口、肩线、袖型和下摆之间的原始比例；分类网格仅供 AI 生成蒙版使用。
+3. 快速模式使用整件衣服的刚性相似变换；手动缩放也只调整整件衣服的统一比例，领口、肩线、袖子和下摆不会被局部拉伸。
 4. 基于人体姿态、肤色和部位区域的 CPU 遮挡解析，手臂、手、颈部、下装可回到服装前方。
 5. 局部光照场、材质细节增强、接触阴影和 1～2 像素抗锯齿边缘。
 6. CatVTON CPU 高质量模式，独立 Python 环境运行，不影响快速模式。
@@ -31,6 +33,12 @@ Set-ExecutionPolicy -Scope Process Bypass
 .\run.ps1 -SkipInstall
 ```
 
+开发调试时建议启用自动重载，修改 Python 后端后无需手动重启：
+
+```powershell
+.\run.ps1 -SkipInstall -Reload
+```
+
 ## 安装 AI 高质量模式
 
 AI 环境与网页主环境隔离：
@@ -47,6 +55,7 @@ CatVTON 源码固定在提交 `3b795364a4d2f3b5adb365f39cdea376d20bc53c`。其�
 
 - 单人正面站立，露出头部、双肩、手臂和腰部。
 - 摄像头固定，光线均匀，避免强逆光。
+- AI 模式会先按人体位置裁成 2:3 竖向上半身区域；横屏近距离画面如果会裁掉肩部、手肘或腰部，将直接提示后退重拍。
 - 双臂自然下垂时快速模式最稳定；交叉手臂、侧身和长发遮挡优先使用 AI 高质量模式。
 - 两种模式都恢复为输入图片的原始尺寸和比例；AI 模式内部使用 512×768 等比留白推理。
 
@@ -78,14 +87,18 @@ CatVTON 源码固定在提交 `3b795364a4d2f3b5adb365f39cdea376d20bc53c`。其�
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
+排查 AI 蒙版时，可在启动前设置 `CATVTON_SAVE_DEBUG=1`；输出目录会额外保存人物裁剪、目标蒙版、手部保护蒙版、模型原图和最终合成蒙版。
+
 ## 主要接口
 
 - `GET /api/health`：姿态、服装和 AI 后端状态。
 - `GET /api/garments`：服装目录。
 - `POST /api/garments`：导入服装，字段 `name`、`image`。
 - `POST /api/analyze`：分析视频帧，字段 `image`。
-- `POST /api/tryon`：字段 `garment_id`、`mode=fast|ai`、`image`。
-- `POST /api/tryon/burst`：字段 `garment_id`、`mode=fast|ai`、1～5 个 `images`。
+- `POST /api/tryon`：字段 `garment_id`、`mode=fast|ai`、可选 `garment_scale=0.8～1.6`、`image`。
+- `POST /api/tryon/burst`：字段 `garment_id`、`mode=fast|ai`、可选 `garment_scale=0.8～1.6`、1～5 个 `images`。
+- `POST /api/tryon/scale`：对已有快速结果固定中心缩放，字段 `result_id`、`garment_scale=0.8～1.6`，不需要再次上传人物照片。
+- `GET /api/tryon/progress/{job_id}`：查询 AI 任务的真实阶段、百分比和扩散步数。
 - `GET /docs`：交互式接口文档。
 
 ## 项目结构
@@ -95,7 +108,7 @@ app/
   main.py          FastAPI 服务与双模式接口
   pose.py          MediaPipe 姿态与画面评分
   garments.py      服装目录、导入和模板元数据
-  tryon.py         快速保形定位、AI 蒙版网格、光影和合成
+  tryon.py         快速关键点保形定位、AI 蒙版网格、光影和合成
   human_parser.py  CPU 人体部位遮挡解析
   ai_tryon.py      CatVTON 独立进程封装
 scripts/

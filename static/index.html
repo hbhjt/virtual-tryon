@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#f4efe7" />
     <title>镜里 · 智能试衣</title>
-    <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="stylesheet" href="/static/styles.css?v=20260815-ai-progress1" />
   </head>
   <body>
     <main class="app-shell">
@@ -37,8 +37,20 @@
             </label>
             <label>
               <input type="radio" name="renderMode" value="ai" id="aiMode" />
-              <span><b>AI 高质量</b><small id="aiModeHint">约 3–5 分钟 · 512×768 / 12 步</small></span>
+              <span><b>AI 高质量</b><small id="aiModeHint">约 3–5 分钟 · 需露出完整上半身</small></span>
             </label>
+          </div>
+          <div class="scale-card" id="scaleCard">
+            <div class="scale-heading">
+              <strong>衣服大小</strong>
+              <span id="garmentScaleValue">100%</span>
+            </div>
+            <div class="scale-controls" role="group" aria-label="调整衣服大小">
+              <button type="button" id="scaleDown" aria-label="缩小衣服">−</button>
+              <div class="scale-track" aria-hidden="true"><span id="scaleTrackFill"></span></div>
+              <button type="button" id="scaleUp" aria-label="放大衣服">＋</button>
+            </div>
+            <small id="scaleHint">生成后围绕固定中心缩放，每次 5%</small>
           </div>
           <div class="wardrobe-note"><span class="note-icon">i</span><p>支持透明 PNG 或纯色背景的正面平铺服装图。</p></div>
         </aside>
@@ -65,6 +77,10 @@
             <div class="processing" id="processing" hidden>
               <div class="spinner"></div><strong id="processingTitle">正在为你换装</strong>
               <span id="processingText">本地 CPU 处理中，请稍候</span>
+              <div class="ai-progress" id="aiProgress" hidden>
+                <div class="ai-progress-track"><span id="aiProgressFill"></span></div>
+                <small id="aiProgressPercent">0%</small>
+              </div>
             </div>
           </div>
           <div class="controls">
@@ -92,6 +108,6 @@
       </section>
     </main>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="/static/app.js" defer></script>
+    <script src="/static/app.js?v=20260815-ai-progress1" defer></script>
   </body>
 </html>

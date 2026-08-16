@@ -41,11 +41,47 @@ def parsed_old_clothes_mask(lip_parse: np.ndarray, atr_parse: np.ndarray) -> np.
     ).astype(np.uint8)
 
 
+def expand_old_clothes_by_color(
+    original_rgb: np.ndarray,
+    parsed_old_clothes: np.ndarray,
+    target_mask: np.ndarray,
+) -> np.ndarray:
+    """Recover same-colored old-cloth pixels missed by human parsing near the target."""
+    height, width = original_rgb.shape[:2]
+    old = cv2.resize(
+        parsed_old_clothes,
+        (width, height),
+        interpolation=cv2.INTER_NEAREST,
+    ) > 0
+    if int(old.sum()) < 64:
+        return np.where(old, 255, 0).astype(np.uint8)
+    target = cv2.resize(target_mask, (width, height), interpolation=cv2.INTER_NEAREST)
+    target_neighborhood = cv2.dilate(
+        np.where(target > 0, 255, 0).astype(np.uint8),
+        cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (31, 31)),
+    ) > 0
+    old_neighborhood = cv2.dilate(
+        np.where(old, 255, 0).astype(np.uint8),
+        cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (25, 25)),
+    ) > 0
+    lab = cv2.cvtColor(original_rgb, cv2.COLOR_RGB2LAB).astype(np.float32)
+    old_color = np.median(lab[old], axis=0)
+    color_distance = np.linalg.norm(lab - old_color[None, None, :], axis=2)
+    recovered = old | (target_neighborhood & old_neighborhood & (color_distance < 18.0))
+    recovered_u8 = cv2.morphologyEx(
+        np.where(recovered, 255, 0).astype(np.uint8),
+        cv2.MORPH_CLOSE,
+        cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9)),
+    )
+    return recovered_u8
+
+
 def build_generation_mask(
     target_mask: np.ndarray,
     lip_parse: np.ndarray,
     atr_parse: np.ndarray,
     hands_mask: np.ndarray,
+    recovered_old_clothes: np.ndarray | None = None,
 ) -> np.ndarray:
     """Union original clothing and target coverage while protecting identity/body areas."""
     shape = target_mask.shape[:2]
@@ -54,8 +90,14 @@ def build_generation_mask(
     hands = cv2.resize(hands_mask, (shape[1], shape[0]), interpolation=cv2.INTER_NEAREST) > 0
     target = target_mask > 0
     old_clothes = parsed_old_clothes_mask(lip, atr) > 0
-    protect = np.isin(lip, LIP_PROTECT) | np.isin(atr, ATR_PROTECT) | hands
-
+    if recovered_old_clothes is not None:
+        recovered = cv2.resize(
+            recovered_old_clothes,
+            (shape[1], shape[0]),
+            interpolation=cv2.INTER_NEAREST,
+        ) > 0
+        old_clothes |= recovered
+    parsed_protect = np.isin(lip, LIP_PROTECT) | np.isin(atr, ATR_PROTECT)
     person = (lip != 0) | (atr != 0)
     person_margin = cv2.dilate(
         np.where(person, 255, 0).astype(np.uint8),
@@ -90,12 +132,23 @@ def build_generation_mask(
         cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (21, 21)),
     ) > 0
     mask[~outer_person_margin] = 0
-    protect_u8 = np.where(protect, 255, 0).astype(np.uint8)
-    protect_u8 = cv2.dilate(
-        protect_u8,
+    parsed_protect_u8 = cv2.dilate(
+        np.where(parsed_protect, 255, 0).astype(np.uint8),
         cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)),
     )
-    mask[protect_u8 > 0] = 0
+    hands_u8 = cv2.dilate(
+        np.where(hands, 255, 0).astype(np.uint8),
+        cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)),
+    )
+    # Parsed/recovered old cloth within the intended garment area takes
+    # precedence over broad neck/arm protection. This prevents the old shirt
+    # from surviving as collar and elbow-colored islands.
+    target_guard = cv2.dilate(
+        np.where(target, 255, 0).astype(np.uint8),
+        cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (17, 17)),
+    ) > 0
+    old_cloth_priority = old_clothes & target_guard
+    mask[((parsed_protect_u8 > 0) & ~old_cloth_priority) | (hands_u8 > 0)] = 0
 
     # Discard parsing specks, but retain every component touched by the target garment.
     count, labels, stats, _ = cv2.connectedComponentsWithStats(mask, 8)

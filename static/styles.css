@@ -97,6 +97,17 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .mode-card small { margin-top: 2px; color: var(--muted); font-size: 9px; line-height: 1.35; }
 .mode-card input:disabled + span { opacity: .45; }
 
+.scale-card { margin-top: 11px; padding: 13px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255,255,255,.38); transition: opacity .2s ease; }
+.scale-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 11px; font-size: 12px; }
+.scale-heading span { color: var(--accent); font-weight: 700; font-variant-numeric: tabular-nums; }
+.scale-controls { display: grid; grid-template-columns: 32px 1fr 32px; align-items: center; gap: 9px; }
+.scale-controls button { width: 32px; height: 32px; padding: 0; cursor: pointer; border: 1px solid var(--line); border-radius: 50%; color: var(--ink); background: var(--paper); font-size: 19px; line-height: 1; transition: .18s ease; }
+.scale-controls button:hover { color: white; border-color: var(--accent); background: var(--accent); transform: scale(1.05); }
+.scale-track { height: 4px; overflow: hidden; border-radius: 999px; background: #d7d0c6; }
+.scale-track span { display: block; width: 25%; height: 100%; border-radius: inherit; background: var(--accent); transition: width .18s ease; }
+.scale-card > small { display: block; margin-top: 9px; color: var(--muted); font-size: 9px; line-height: 1.4; }
+.scale-card.unavailable { opacity: .65; }
+
 .wardrobe-note, .privacy-note { display: flex; gap: 10px; margin-top: auto; padding-top: 22px; color: var(--muted); font-size: 11px; line-height: 1.6; }
 .wardrobe-note p, .privacy-note p { margin: 0; }
 .note-icon { flex: 0 0 auto; display: grid; place-items: center; width: 18px; height: 18px; border: 1px solid var(--muted); border-radius: 50%; font-family: serif; }
@@ -151,6 +162,10 @@ button:disabled, .disabled { opacity: .42; pointer-events: none; }
 .processing { z-index: 20; color: white; background: rgba(33,31,28,.75); backdrop-filter: blur(12px); }
 .processing strong { margin: 20px 0 5px; font-size: 18px; }
 .processing span { opacity: .7; font-size: 12px; }
+.ai-progress { width: min(78%, 360px); margin-top: 22px; display: flex; align-items: center; gap: 10px; }
+.ai-progress-track { flex: 1; height: 8px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.2); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
+.ai-progress-track span { display: block; width: 0; height: 100%; border-radius: inherit; opacity: 1; background: linear-gradient(90deg, #d98a6d, #fff2df); transition: width .45s ease; }
+.ai-progress small { flex: 0 0 38px; color: white; font-size: 11px; font-variant-numeric: tabular-nums; text-align: right; }
 .spinner { width: 46px; height: 46px; border: 2px solid rgba(255,255,255,.25); border-top-color: white; border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 

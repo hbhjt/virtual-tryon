@@ -8,7 +8,14 @@ import numpy as np
 from app.garments import DEFAULT_ANCHORS, Garment, GarmentStore
 from app.human_parser import parse_body_parts
 from app.pose import fallback_pose
-from app.tryon import build_category_mesh, compose_tryon, crisp_alpha, place_garment_rigid, target_anchors, warp_garment
+from app.tryon import (
+    build_category_mesh,
+    compose_tryon,
+    crisp_alpha,
+    place_garment_rigid,
+    target_anchors,
+    warp_garment,
+)
 
 
 def make_test_garment(tmp_path) -> tuple[Garment, np.ndarray]:
@@ -96,3 +103,27 @@ def test_rigid_preview_preserves_garment_bounding_box_aspect_ratio(tmp_path) -> 
     source_ratio = source_box[2] / source_box[3]
     placed_ratio = placed_box[2] / placed_box[3]
     assert abs(source_ratio - placed_ratio) < 0.03
+
+
+def test_manual_scale_changes_size_without_changing_garment_shape(tmp_path) -> None:
+    garment, rgba = make_test_garment(tmp_path)
+    pose = fallback_pose()
+    small = place_garment_rigid(
+        rgba, garment, pose, (960, 640), scale_multiplier=0.8
+    )
+    large = place_garment_rigid(
+        rgba, garment, pose, (960, 640), scale_multiplier=1.6
+    )
+    small_box = cv2.boundingRect(cv2.findNonZero((small[:, :, 3] > 12).astype(np.uint8)))
+    large_box = cv2.boundingRect(cv2.findNonZero((large[:, :, 3] > 12).astype(np.uint8)))
+
+    assert large_box[2] > small_box[2]
+    assert large_box[3] > small_box[3]
+    assert abs((large_box[2] / large_box[3]) - (small_box[2] / small_box[3])) < 0.03
+    small_center = np.array(
+        [small_box[0] + small_box[2] * 0.5, small_box[1] + small_box[3] * 0.5]
+    )
+    large_center = np.array(
+        [large_box[0] + large_box[2] * 0.5, large_box[1] + large_box[3] * 0.5]
+    )
+    assert np.linalg.norm(small_center - large_center) <= 1.5

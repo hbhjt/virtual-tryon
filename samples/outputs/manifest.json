@@ -6,7 +6,7 @@
       "input": "../inputs/person-woman-front.png",
       "garment": "coral-tee",
       "output": "woman-coral-tee.jpg",
-      "elapsed_ms": 527.3,
+      "elapsed_ms": 630.3,
       "quality_score": 0.9146,
       "pose_detected": true
     },
@@ -15,7 +15,7 @@
       "input": "../inputs/person-woman-front.png",
       "garment": "ocean-polo",
       "output": "woman-ocean-polo.jpg",
-      "elapsed_ms": 374.9,
+      "elapsed_ms": 625.7,
       "quality_score": 0.9146,
       "pose_detected": true
     },
@@ -24,7 +24,7 @@
       "input": "../inputs/person-woman-front.png",
       "garment": "cream-sweater",
       "output": "woman-cream-sweater.jpg",
-      "elapsed_ms": 501.9,
+      "elapsed_ms": 659.1,
       "quality_score": 0.9146,
       "pose_detected": true
     },
@@ -33,7 +33,7 @@
       "input": "../inputs/person-woman-front.png",
       "garment": "midnight-jacket",
       "output": "woman-midnight-jacket.jpg",
-      "elapsed_ms": 342.0,
+      "elapsed_ms": 614.8,
       "quality_score": 0.9146,
       "pose_detected": true
     },
@@ -42,7 +42,7 @@
       "input": "../inputs/person-man-front.png",
       "garment": "coral-tee",
       "output": "man-coral-tee.jpg",
-      "elapsed_ms": 478.4,
+      "elapsed_ms": 704.0,
       "quality_score": 0.9067,
       "pose_detected": true
     },
@@ -51,7 +51,7 @@
       "input": "../inputs/person-man-front.png",
       "garment": "ocean-polo",
       "output": "man-ocean-polo.jpg",
-      "elapsed_ms": 458.9,
+      "elapsed_ms": 619.6,
       "quality_score": 0.9067,
       "pose_detected": true
     },
@@ -60,7 +60,7 @@
       "input": "../inputs/person-man-front.png",
       "garment": "cream-sweater",
       "output": "man-cream-sweater.jpg",
-      "elapsed_ms": 562.3,
+      "elapsed_ms": 695.9,
       "quality_score": 0.9067,
       "pose_detected": true
     },
@@ -69,7 +69,7 @@
       "input": "../inputs/person-man-front.png",
       "garment": "midnight-jacket",
       "output": "man-midnight-jacket.jpg",
-      "elapsed_ms": 379.5,
+      "elapsed_ms": 633.0,
       "quality_score": 0.9067,
       "pose_detected": true
     }

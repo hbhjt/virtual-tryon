@@ -26,6 +26,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--height", type=int, default=768)
     parser.add_argument("--steps", type=int, default=12)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--progress-file")
     return parser.parse_args()
 
 
@@ -56,6 +57,7 @@ def main() -> None:
     from app.ai_masks import (
         build_generation_mask,
         composite_to_original,
+        expand_old_clothes_by_color,
         harmonize_garment_color,
         include_color_matched_old_edges,
         letterbox_image,
@@ -63,10 +65,32 @@ def main() -> None:
         parsed_old_clothes_mask,
         refine_mask_with_generated_parse,
     )
+    from app.ai_progress import write_progress
     from model.SCHP import SCHP
 
     worker_started = time.perf_counter()
+    progress_file = Path(args.progress_file) if args.progress_file else None
+
+    def report(
+        progress: float,
+        stage: str,
+        message: str,
+        *,
+        step: int | None = None,
+        total_steps: int | None = None,
+    ) -> None:
+        if progress_file is not None:
+            write_progress(
+                progress_file,
+                progress=progress,
+                stage=stage,
+                message=message,
+                step=step,
+                total_steps=total_steps,
+            )
+
     torch.set_num_threads(max(1, min(16, (os.cpu_count() or 8) - 2)))
+    report(10, "parsing", "正在准备人体解析模型")
     attention_file = _cached_file("*/mix-48k-1024/attention/model.safetensors")
     lip_checkpoint = _cached_file("*/SCHP/exp-schp-201908261155-lip.pth")
     atr_checkpoint = _cached_file("*/SCHP/exp-schp-201908301523-atr.pth")
@@ -104,9 +128,21 @@ def main() -> None:
     del atr_model
     gc.collect()
     parsing_seconds = time.perf_counter() - parsing_started
+    report(23, "parsing", "人体与原衣区域解析完成")
 
     original_clothes = parsed_old_clothes_mask(lip_parse, atr_parse)
-    generation_mask = build_generation_mask(target_mask, lip_parse, atr_parse, hands_mask)
+    original_clothes = expand_old_clothes_by_color(
+        original,
+        original_clothes,
+        target_mask,
+    )
+    generation_mask = build_generation_mask(
+        target_mask,
+        lip_parse,
+        atr_parse,
+        hands_mask,
+        original_clothes,
+    )
     del lip_parse, atr_parse
     gc.collect()
 
@@ -120,6 +156,7 @@ def main() -> None:
     from model.pipeline import CatVTONPipeline
 
     load_started = time.perf_counter()
+    report(26, "loading", "正在加载 CatVTON 模型")
     attention_checkpoint = str(attention_file.parents[2])
     pipeline = CatVTONPipeline(
         base_ckpt="booksforcharlie/stable-diffusion-inpainting",
@@ -132,9 +169,21 @@ def main() -> None:
         use_tf32=False,
     )
     load_seconds = time.perf_counter() - load_started
+    report(34, "loading", "模型加载完成，准备生成")
 
     generator = torch.Generator(device="cpu").manual_seed(args.seed)
     generation_started = time.perf_counter()
+
+    def generation_progress(step: int, total: int) -> None:
+        percent = 35.0 + (step / max(total, 1)) * 50.0
+        report(
+            percent,
+            "generating",
+            f"正在生成衣服细节：第 {step}/{total} 步",
+            step=step,
+            total_steps=total,
+        )
+
     with torch.inference_mode():
         generated = pipeline(
             image=Image.fromarray(person_fit),
@@ -145,10 +194,13 @@ def main() -> None:
             height=args.height,
             width=args.width,
             generator=generator,
+            progress_callback=generation_progress,
         )[0]
     generation_seconds = time.perf_counter() - generation_started
+    report(86, "generating", "衣服生成完成")
 
     post_parse_started = time.perf_counter()
+    report(88, "post_parse", "正在检查衣服边缘")
     generated_rgb_raw = np.array(generated.convert("RGB"), dtype=np.uint8)
     del pipeline
     gc.collect()
@@ -174,6 +226,7 @@ def main() -> None:
     )
     post_parse_seconds = time.perf_counter() - post_parse_started
     postprocess_started = time.perf_counter()
+    report(94, "postprocess", "正在恢复原图尺寸并合成")
     output = Path(args.output)
     if os.environ.get("CATVTON_SAVE_DEBUG") == "1":
         generated.save(output.with_name(f"{output.stem}-raw.png"), format="PNG")
@@ -193,6 +246,7 @@ def main() -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     Image.fromarray(result).save(output, format="PNG", compress_level=3)
     postprocess_seconds = time.perf_counter() - postprocess_started
+    report(98, "postprocess", "AI 后处理完成")
     print(
         json.dumps(
             {
